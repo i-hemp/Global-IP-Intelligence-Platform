@@ -1,196 +1,182 @@
-import { useState, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import api from "../services/api";
+
+const STATUS_COLORS = {
+  ACTIVE: "text-green-400",
+  PENDING: "text-yellow-400",
+  GRANTED: "text-blue-400",
+  DISCONTINUED: "text-red-400",
+};
 
 export default function DetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Expanded dummy data
-  const dummyAssets = {
-    "1": {
-      title: "AI Based System",
-      preface: "This invention introduces an AI-based system designed to optimize decision-making processes.",
-      abstract: "The system leverages machine learning algorithms to analyze large datasets and provide actionable insights.",
-      claims: [
-        "Claim 1: A system for AI-based decision making.",
-        "Claim 2: A method for intelligent resource allocation."
-      ],
-      inventor: "John Doe",
-      assignee: "TechCorp",
-      jurisdiction: "US",
-      applicationNumber: "APP123456",
-      filingDate: "2025-01-01",
-      status: "Filed",
-      technical: "The system integrates neural networks with cloud-based data pipelines, ensuring scalability and reliability.",
-      conclusion: "This AI system represents a step forward in automated decision-making for enterprises."
-    },
-    "2": {
-      title: "Bluetooth based attendance",
-      preface: "This invention simplifies attendance tracking using Bluetooth-enabled devices.",
-      abstract: "The system allows seamless attendance logging by detecting nearby Bluetooth signals.",
-      claims: [
-        "Claim 1: A method for attendance tracking using Bluetooth.",
-        "Claim 2: A system for secure attendance verification."
-      ],
-      inventor: "Alice",
-      assignee: "InfoTechCorp",
-      jurisdiction: "IN",
-      applicationNumber: "APP654321",
-      filingDate: "2025-02-01",
-      status: "Filed",
-      technical: "The solution uses Bluetooth Low Energy (BLE) for efficient device detection and integrates with cloud storage.",
-      conclusion: "This system reduces manual errors and enhances security in attendance management."
-    },
-    "3": {
-      title: "Bluetooth based attendance",
-      preface: "A variant of the Bluetooth attendance system focusing on device-based verification.",
-      abstract: "This version emphasizes secure logging through unique device identifiers.",
-      claims: [
-        "Claim 1: A Bluetooth-based attendance device.",
-        "Claim 2: A method for logging attendance securely."
-      ],
-      inventor: "Alice",
-      assignee: "InfoTechCorp",
-      jurisdiction: "IN",
-      applicationNumber: "APP789012",
-      filingDate: "2025-03-01",
-      status: "Filed",
-      technical: "The device integrates with mobile applications and uses encryption for secure data transfer.",
-      conclusion: "This variant enhances security and reliability in attendance tracking."
-    }
+  const [asset, setAsset] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const role = localStorage.getItem("role");
+  const from = location.state?.from;
+
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        // Public endpoint — no token needed
+        const res = await api.get(`/api/assets/${id}`);
+        setAsset(res.data);
+      } catch (err) {
+        console.error("Detail fetch error:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [id]);
+
+  const handleBack = () => {
+    if (from === "ANALYST") return navigate("/analyst");
+    if (from === "USER") return navigate("/user");
+    if (role === "ANALYST") return navigate("/analyst");
+    if (role === "ADMIN") return navigate("/admin");
+    navigate("/user");
   };
 
-  const [asset] = useState(dummyAssets[id]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [fontSize, setFontSize] = useState("text-base");
+  if (loading)
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <p className="text-gray-400 text-lg animate-pulse">Loading patent details…</p>
+      </div>
+    );
 
-  // Section refs
-  const prefaceRef = useRef(null);
-  const abstractRef = useRef(null);
-  const claimsRef = useRef(null);
-  const inventorRef = useRef(null);
-  const statusRef = useRef(null);
-  const technicalRef = useRef(null);
-  const conclusionRef = useRef(null);
+  if (error || !asset)
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4">
+        <p className="text-red-400 text-lg">Could not load patent details.</p>
+        <button
+          onClick={handleBack}
+          className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded transition"
+        >
+          ← Go Back
+        </button>
+      </div>
+    );
 
-  const [currentSection, setCurrentSection] = useState("preface");
-  const sectionOrder = [
-    { key: "preface", ref: prefaceRef },
-    { key: "abstract", ref: abstractRef },
-    { key: "claims", ref: claimsRef },
-    { key: "inventor", ref: inventorRef },
-    { key: "status", ref: statusRef },
-    { key: "technical", ref: technicalRef },
-    { key: "conclusion", ref: conclusionRef },
-  ];
-
-  const scrollToSection = (sectionKey) => {
-    const sec = sectionOrder.find(s => s.key === sectionKey);
-    sec.ref.current.scrollIntoView({ behavior: "smooth" });
-    setCurrentSection(sectionKey);
-  };
-
-  const goPrev = () => {
-    const idx = sectionOrder.findIndex(s => s.key === currentSection);
-    if (idx > 0) scrollToSection(sectionOrder[idx - 1].key);
-  };
-
-  const goNext = () => {
-    const idx = sectionOrder.findIndex(s => s.key === currentSection);
-    if (idx < sectionOrder.length - 1) scrollToSection(sectionOrder[idx + 1].key);
-  };
-
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(asset, null, 2)], { type: "application/json" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `ip-asset-${id}.json`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
-
-  if (!asset) return <p className="text-white">Loading...</p>;
+  // Extract fields from Lens.org response
+  const biblio = asset.biblio || {};
+  const title = biblio?.invention_title?.[0]?.text
+    ?? asset.title
+    ?? "Untitled Patent";
+  const inventors = biblio?.parties?.inventors?.map(i => i.extracted_name?.value).filter(Boolean)
+    ?? asset.inventors
+    ?? [];
+  const applicants = biblio?.parties?.applicants?.map(a => a.extracted_name?.value).filter(Boolean)
+    ?? asset.applicants
+    ?? [];
+  const docNumber = biblio?.publication_reference?.doc_number ?? asset.docNumber ?? asset.lens_id ?? id;
+  const jurisdiction = asset.jurisdiction;
+  const datePublished = asset.date_published ?? asset.datePublished;
+  const abstract = asset.abstract?.[0]?.text ?? asset.abstract ?? "N/A";
+  const patentStatus = asset.legal?.patent_status ?? asset.patentStatus ?? "—";
+  const pubType = asset.publicationType ?? asset.doc_type ?? "—";
+  const kind = biblio?.publication_reference?.kind ?? asset.kind ?? "";
+  const appNumber = biblio?.application_reference?.doc_number ?? "";
+  const appDate = biblio?.application_reference?.date ?? "";
 
   return (
-    <div className="flex h-screen text-white">
-      {/* Sidebar */}
-      {sidebarOpen && (
-        <div className="w-64 bg-gray-900 p-4 overflow-y-auto transition-all">
-          <h2 className="text-lg font-bold mb-4">Contents</h2>
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full mb-4 px-2 py-1 rounded bg-gray-800 text-white focus:outline-none"
-          />
-          <ul className="space-y-2">
-            {sectionOrder.map((sec) => (
-              <li key={sec.key}>
-                <button
-                  onClick={() => scrollToSection(sec.key)}
-                  className={`w-full text-left px-2 py-1 rounded ${
-                    currentSection === sec.key ? "bg-blue-600" : "hover:bg-gray-700"
-                  }`}
-                >
-                  {sec.key.charAt(0).toUpperCase() + sec.key.slice(1)}
-                </button>
-              </li>
+    <div className="min-h-screen bg-slate-900 text-white px-4 md:px-10 py-10">
+
+      {/* ── BACK ── */}
+      <button
+        onClick={handleBack}
+        className="mb-6 bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded transition text-sm"
+      >
+        ← Back to Dashboard
+      </button>
+
+      {/* ── TITLE + STATUS ── */}
+      <div className="mb-8 flex flex-col md:flex-row md:items-start gap-4 justify-between">
+        <h1 className="text-2xl md:text-3xl font-bold text-indigo-400 max-w-3xl leading-snug">
+          {title}
+        </h1>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <span className={`text-lg font-semibold ${STATUS_COLORS[patentStatus] || "text-gray-300"}`}>
+            {patentStatus}
+          </span>
+          <span className="text-xs bg-indigo-800 text-indigo-300 px-3 py-1 rounded">
+            {pubType.replace("_", " ")}
+          </span>
+        </div>
+      </div>
+
+      {/* ── KEY INFO GRID ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <InfoCard label="Publication Number" value={`${jurisdiction} ${docNumber} ${kind}`} />
+        <InfoCard label="Jurisdiction" value={jurisdiction} />
+        <InfoCard label="Date Published" value={datePublished} />
+        <InfoCard label="Application Number" value={appNumber || "N/A"} />
+        <InfoCard label="Application Date" value={appDate || "N/A"} />
+        <InfoCard label="Lens ID" value={asset.lens_id ?? id} mono />
+      </div>
+
+      {/* ── PARTIES ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <PartyCard label="Applicants" items={applicants} />
+        <PartyCard label="Inventors" items={inventors} />
+      </div>
+
+      {/* ── ABSTRACT ── */}
+      <div className="bg-slate-800 p-6 rounded-xl mb-8">
+        <h2 className="text-lg font-semibold text-indigo-400 mb-3">Abstract</h2>
+        <p className="text-gray-300 leading-relaxed text-sm">{abstract}</p>
+      </div>
+
+      {/* ── CLASSIFICATIONS ── */}
+      {biblio?.classifications_cpc?.classifications?.length > 0 && (
+        <div className="bg-slate-800 p-6 rounded-xl">
+          <h2 className="text-lg font-semibold text-indigo-400 mb-3">CPC Classifications</h2>
+          <div className="flex flex-wrap gap-2">
+            {biblio.classifications_cpc.classifications.map((c, i) => (
+              <span key={i} className="bg-slate-700 px-3 py-1 rounded text-xs text-gray-300">
+                {c.symbol}
+              </span>
             ))}
-          </ul>
+          </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6 relative">
-        {/* Toolbar */}
-        <div className="absolute top-4 right-4 flex gap-2">
-          <button onClick={goPrev} className="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">&lt;</button>
-          <button onClick={goNext} className="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">&gt;</button>
-          <button onClick={handleExport} className="bg-yellow-600 px-3 py-1 rounded hover:bg-yellow-700">Download</button>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">☰</button>
-          <button onClick={() => setFontSize("text-sm")} className="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">A-</button>
-          <button onClick={() => setFontSize("text-lg")} className="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">A+</button>
-          <button className="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700">Fb</button>
-          <button className="bg-sky-500 px-3 py-1 rounded hover:bg-sky-600">Tw</button>
-          <button className="bg-blue-800 px-3 py-1 rounded hover:bg-blue-900">In</button>
-        </div>
+/* ── Small components ── */
+function InfoCard({ label, value, mono }) {
+  return (
+    <div className="bg-slate-800 p-4 rounded-xl">
+      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      <p className={`font-semibold text-sm ${mono ? "font-mono text-indigo-300" : ""}`}>
+        {value || "N/A"}
+      </p>
+    </div>
+  );
+}
 
-        {/* Sections */}
-        <section ref={prefaceRef} className={`mb-12 ${fontSize}`}>
-          <h1 className="text-2xl font-bold mb-2">{asset.title}</h1>
-          <h2 className="text-xl font-semibold mb-2">Preface</h2>
-          <p>{asset.preface}</p>
-        </section>
-
-        <section ref={abstractRef} className={`mb-12 ${fontSize}`}>
-          <h2 className="text-xl font-semibold mb-2">Abstract</h2>
-          <p>{asset.abstract}</p>
-        </section>
-
-        <section ref={claimsRef} className={`mb-12 ${fontSize}`}>
-          <h2 className="text-xl font-semibold mb-2">Claims</h2>
-          <ul className="list-disc pl-6">
-            {asset.claims?.map((c, i) => <li key={i}>{c}</li>)}
-          </ul>
-        </section>
-
-        <section ref={statusRef} className={`mb-12 ${fontSize}`}>
-          <h2 className="text-xl font-semibold mb-2">Legal Status</h2>
-          <p><strong>Application No:</strong> {asset.applicationNumber}</p>
-          <p><strong>Filing Date:</strong> {asset.filingDate}</p>
-          <p><strong>Status:</strong> {asset.status}</p>
-        </section>
-
-        <section ref={technicalRef} className={`mb-12 ${fontSize}`}>
-          <h2 className="text-xl font-semibold mb-2">Technical Description</h2>
-          <p>{asset.technical}</p>
-        </section>
-
-        <section ref={conclusionRef} className={`mb-12 ${fontSize}`}>
-          <h2 className="text-xl font-semibold mb-2">Conclusion</h2>
-          <p>{asset.conclusion}</p>
-        </section>
-      </div>
+function PartyCard({ label, items }) {
+  return (
+    <div className="bg-slate-800 p-4 rounded-xl">
+      <p className="text-xs text-gray-400 mb-2">{label}</p>
+      {items.length === 0
+        ? <p className="text-sm text-gray-500">N/A</p>
+        : <ul className="space-y-1">
+          {items.map((item, i) => (
+            <li key={i} className="text-sm text-gray-200">
+              {i + 1}. {item}
+            </li>
+          ))}
+        </ul>
+      }
     </div>
   );
 }

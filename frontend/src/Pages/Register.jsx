@@ -5,6 +5,7 @@ import axios from "axios";
 
 export default function Register() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     username: "",
@@ -15,6 +16,14 @@ export default function Register() {
     documentType: "AADHAAR_CARD",
     proofFile: null,
   });
+
+  // Password strength check
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return "";
+    if (pwd.length < 6) return "Weak";
+    if (/[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && /[^A-Za-z0-9]/.test(pwd)) return "Strong";
+    return "Medium";
+  };
 
   const handleRegister = async () => {
     try {
@@ -27,6 +36,8 @@ export default function Register() {
         toast.error("Passwords do not match");
         return;
       }
+
+      setLoading(true);
 
       // USER Registration
       if (form.role === "USER") {
@@ -57,107 +68,110 @@ export default function Register() {
       formData.append("organization", "Independent");
       formData.append("document", form.proofFile);
 
-      await axios.post(
-        "http://localhost:8081/api/analyst/register",
-        formData
-      );
+      await axios.post("http://localhost:8081/api/analyst/register", formData);
 
       toast.success("Analyst request submitted. Wait for admin approval.");
       navigate("/login");
-
     } catch (error) {
       toast.error(error.response?.data?.error || "Registration failed");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4">
-
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 px-4">
       <div className="w-full max-w-md bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl p-10 text-white space-y-5">
-
-        <div>
+        
+        {/* Branding */}
+        <div className="text-center">
           <h1 className="text-lg font-semibold tracking-widest text-sky-400">
             IP Intelligence
           </h1>
-          <p className="text-sm text-gray-300">
-            Create your professional account
-          </p>
+          <p className="text-sm text-gray-300">Create your professional account</p>
+          <p className="text-xs text-indigo-300 mt-1">🔒 Secure • ✅ Verified • 🏢 Enterprise-Grade</p>
         </div>
 
         {/* Username */}
         <input
           type="text"
           placeholder="Username"
-          className="w-full p-3 rounded-xl bg-slate-700 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder-gray-400"
+          className="input-field"
           value={form.username}
-          onChange={(e) =>
-            setForm({ ...form, username: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, username: e.target.value })}
         />
 
         {/* Email */}
         <input
           type="email"
           placeholder="Email address"
-          className="w-full p-3 rounded-xl bg-slate-700 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder-gray-400"
+          className="input-field"
           value={form.email}
-          onChange={(e) =>
-            setForm({ ...form, email: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
 
         {/* Password */}
         <input
           type="password"
           placeholder="Password"
-          className="w-full p-3 rounded-xl bg-slate-700 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder-gray-400"
+          className="input-field"
           value={form.password}
-          onChange={(e) =>
-            setForm({ ...form, password: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
+        {form.password && (
+          <p className="text-xs mt-1">
+            Strength:{" "}
+            <span
+              className={
+                getPasswordStrength(form.password) === "Strong"
+                  ? "text-green-400"
+                  : getPasswordStrength(form.password) === "Medium"
+                  ? "text-yellow-400"
+                  : "text-red-400"
+              }
+            >
+              {getPasswordStrength(form.password)}
+            </span>
+          </p>
+        )}
 
         {/* Confirm Password */}
         <input
           type="password"
           placeholder="Confirm password"
-          className={`w-full p-3 rounded-xl bg-slate-700 text-white border ${
-            form.confirmPassword &&
-            form.confirmPassword !== form.password
+          className={`input-field ${
+            form.confirmPassword && form.confirmPassword !== form.password
               ? "border-red-500"
-              : "border-white/20"
-          } focus:outline-none focus:ring-2 focus:ring-sky-400 placeholder-gray-400`}
+              : ""
+          }`}
           value={form.confirmPassword}
-          onChange={(e) =>
-            setForm({ ...form, confirmPassword: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
         />
 
-        {/* Role Dropdown */}
-        <select
-          className="w-full p-3 rounded-xl bg-slate-700 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-sky-400 appearance-none cursor-pointer"
-          value={form.role}
-          onChange={(e) =>
-            setForm({ ...form, role: e.target.value })
-          }
-        >
-          <option value="USER" className="bg-slate-800 text-white">
-            USER
-          </option>
-          <option value="ANALYST" className="bg-slate-800 text-white">
-            ANALYST
-          </option>
-        </select>
+        {/* Role Cards */}
+        <div className="flex gap-3">
+          {["USER", "ANALYST"].map((r) => (
+            <div
+              key={r}
+              onClick={() => setForm({ ...form, role: r })}
+              className={`flex-1 text-center p-3 rounded-xl border cursor-pointer transition ${
+                form.role === r
+                  ? "bg-sky-600 border-sky-400 font-semibold"
+                  : "bg-slate-700 border-white/20"
+              }`}
+            >
+              {r}
+            </div>
+          ))}
+        </div>
 
         {/* Analyst Section */}
         {form.role === "ANALYST" && (
           <>
             <select
-              className="w-full p-3 rounded-xl bg-slate-700 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-sky-400 appearance-none cursor-pointer"
+              className="input-field"
               value={form.documentType}
-              onChange={(e) =>
-                setForm({ ...form, documentType: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, documentType: e.target.value })}
             >
               <option value="AADHAAR_CARD">AADHAAR_CARD</option>
               <option value="PAN_CARD">PAN_CARD</option>
@@ -171,9 +185,7 @@ export default function Register() {
               type="file"
               accept=".pdf,.jpg,.png"
               className="w-full text-sm text-gray-300"
-              onChange={(e) =>
-                setForm({ ...form, proofFile: e.target.files[0] })
-              }
+              onChange={(e) => setForm({ ...form, proofFile: e.target.files[0] })}
             />
           </>
         )}
@@ -181,9 +193,10 @@ export default function Register() {
         {/* Buttons */}
         <button
           onClick={handleRegister}
-          className="w-full py-3 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-sky-400 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
+          disabled={loading}
+          className="w-full py-3 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-sky-400 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 disabled:opacity-60"
         >
-          Create Account
+          {loading ? "Creating Account..." : "Create Account"}
         </button>
 
         <button
@@ -192,8 +205,36 @@ export default function Register() {
         >
           Back to Login
         </button>
-
       </div>
+
+      {/* Footer */}
+      <footer className="mt-6 text-center text-sm text-gray-400">
+        <div className="flex justify-center gap-6 mb-2">
+          <button className="hover:text-sky-400 transition">Privacy Policy</button>
+          <button className="hover:text-sky-400 transition">Terms of Use</button>
+          <button className="hover:text-sky-400 transition">Contact</button>
+        </div>
+        © 2026 Global IP Intelligence Platform
+      </footer>
+
+      {/* Styles */}
+      <style>{`
+        .input-field {
+          width: 100%;
+          padding: 12px;
+          border-radius: 12px;
+          background: #1e293b;
+          color: white;
+          border: 1px solid rgba(255,255,255,0.2);
+          font-size: 14px;
+          transition: all 0.3s ease;
+        }
+        .input-field:focus {
+          border-color: #38bdf8;
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(56,189,248,0.2);
+        }
+      `}</style>
     </div>
   );
 }

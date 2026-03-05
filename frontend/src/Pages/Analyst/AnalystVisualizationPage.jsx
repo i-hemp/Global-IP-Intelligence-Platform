@@ -1,5 +1,8 @@
+
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
+
 import {
   PieChart, Pie, Cell,
   BarChart, Bar,
@@ -12,222 +15,347 @@ import {
 
 export default function AnalystVisualizationPage() {
 
-  const token = localStorage.getItem("accessToken");
+  const [searchParams] = useSearchParams();
+  const query = searchParams.get("q") || "artificial intelligence";
+
   const [assets, setAssets] = useState([]);
 
   useEffect(() => {
     fetchAssets();
-  }, []);
+  }, [query]);
 
   const fetchAssets = async () => {
+
     try {
+
       const response = await axios.get(
-        "http://localhost:8081/api/ip-assets",
+        "http://localhost:8081/api/search",
         {
-          headers: {
-            Authorization: `Bearer ${token}`
+          params: {
+            q: query,
+            type: "PATENT",
+            page: 0,
+            size: 100
           }
         }
       );
-      setAssets(response.data || []);
+
+      setAssets(response.data.results || []);
+
     } catch (error) {
+
       console.error(error);
+
     }
+
   };
 
-  /* ================= KPI CALCULATIONS ================= */
+  /* KPI */
 
-  const totalAssets = assets.length;
-  const granted = assets.filter(a => a.status === "Granted").length;
-  const filed = assets.filter(a => a.status === "Filed").length;
-  const expired = assets.filter(a => a.status === "Expired").length;
+  const total = assets.length;
 
-  const grantRate =
-    totalAssets > 0
-      ? ((granted / totalAssets) * 100).toFixed(1)
-      : 0;
+  const active = assets.filter(a => a.patentStatus === "ACTIVE").length;
+  const pending = assets.filter(a => a.patentStatus === "PENDING").length;
+  const discontinued = assets.filter(a => a.patentStatus === "DISCONTINUED").length;
 
-  /* ================= STATUS DISTRIBUTION ================= */
+  /* STATUS PIE */
 
   const statusData = useMemo(() => {
+
     const counts = {};
+
     assets.forEach(a => {
-      counts[a.status] = (counts[a.status] || 0) + 1;
+
+      const s = a.patentStatus || "UNKNOWN";
+
+      counts[s] = (counts[s] || 0) + 1;
+
     });
 
-    return Object.keys(counts).map(key => ({
-      name: key,
-      value: counts[key]
+    return Object.keys(counts).map(k => ({
+      name: k,
+      value: counts[k]
     }));
+
   }, [assets]);
 
-  /* ================= JURISDICTION DISTRIBUTION ================= */
+  /* JURISDICTION */
 
   const jurisdictionData = useMemo(() => {
+
     const counts = {};
+
     assets.forEach(a => {
-      counts[a.jurisdiction] = (counts[a.jurisdiction] || 0) + 1;
+
+      const j = a.jurisdiction || "UNKNOWN";
+
+      counts[j] = (counts[j] || 0) + 1;
+
     });
 
-    return Object.keys(counts).map(key => ({
-      name: key,
-      value: counts[key]
+    return Object.keys(counts).map(k => ({
+      name: k,
+      value: counts[k]
     }));
+
   }, [assets]);
 
-  /* ================= FILING TREND ================= */
+  /* YEAR TREND */
 
   const trendData = useMemo(() => {
+
     const counts = {};
 
     assets.forEach(a => {
-      if (!a.filingDate) return;
 
-      const year = new Date(a.filingDate).getFullYear();
+      if (!a.datePublished) return;
+
+      const year = new Date(a.datePublished).getFullYear();
+
       counts[year] = (counts[year] || 0) + 1;
+
     });
 
     return Object.keys(counts)
       .sort()
-      .map(year => ({
-        year,
-        filings: counts[year]
+      .map(y => ({
+        year: y,
+        filings: counts[y]
       }));
+
   }, [assets]);
 
-  /* ================= TOP ASSIGNEES ================= */
+  /* TOP APPLICANTS */
 
-  const assigneeData = useMemo(() => {
+  const applicantData = useMemo(() => {
+
     const counts = {};
 
     assets.forEach(a => {
-      if (!a.assignee) return;
-      counts[a.assignee] = (counts[a.assignee] || 0) + 1;
+
+      const app = a.applicants?.[0];
+
+      if (!app) return;
+
+      counts[app] = (counts[app] || 0) + 1;
+
     });
 
     return Object.keys(counts)
-      .map(key => ({
-        name: key,
-        value: counts[key]
+      .map(k => ({
+        name: k,
+        value: counts[k]
       }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .sort((a,b)=>b.value-a.value)
+      .slice(0,5);
+
   }, [assets]);
 
-  const COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#22d3ee"];
+  const COLORS = [
+    "#6366f1",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#22d3ee"
+  ];
 
   return (
-    <div>
 
-      <h2 className="text-2xl font-bold text-indigo-400 mb-8">
-        IP Landscape & Competitive Intelligence
+    <div className="space-y-10 text-white">
+
+      <h2
+        className="
+        text-3xl
+        font-extrabold
+        bg-gradient-to-r
+        from-indigo-400
+        to-purple-500
+        bg-clip-text
+        text-transparent
+        "
+      >
+        Patent Analytics Dashboard — {query}
       </h2>
 
-      {/* ================= KPI CARDS ================= */}
+      {/* KPI */}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
-        <KpiCard title="Total Assets" value={totalAssets} color="text-indigo-400" />
-        <KpiCard title="Filed" value={filed} color="text-yellow-400" />
-        <KpiCard title="Granted" value={granted} color="text-green-400" />
-        <KpiCard title="Expired" value={expired} color="text-red-400" />
-        <KpiCard title="Grant Rate (%)" value={grantRate} color="text-cyan-400" />
+        <Kpi title="Total Patents" value={total} />
+        <Kpi title="Active" value={active} />
+        <Kpi title="Pending" value={pending} />
+        <Kpi title="Discontinued" value={discontinued} />
 
       </div>
 
-      {/* ================= CHART GRID ================= */}
+      {/* CHART GRID */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-        {/* STATUS PIE */}
-        <ChartCard title="IP Lifecycle Status Distribution">
-          <PieChart width={400} height={300}>
-            <Pie
-              data={statusData}
-              dataKey="value"
-              outerRadius={100}
-              label
-            >
-              {statusData.map((entry, index) => (
-                <Cell key={index} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
-        </ChartCard>
+        <ChartCard title="Patent Status Distribution">
 
-        {/* JURISDICTION BAR */}
-        <ChartCard title="Jurisdiction Strength Analysis">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={jurisdictionData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="value" fill="#6366f1" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
 
-        {/* TREND LINE */}
-        <ChartCard title="Year-wise Filing Trend">
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="year" />
-              <YAxis />
+            <PieChart>
+
+              <Pie
+                data={statusData}
+                dataKey="value"
+                outerRadius={100}
+                label
+              >
+
+                {statusData.map((entry,index)=>(
+                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                ))}
+
+              </Pie>
+
               <Tooltip />
               <Legend />
+
+            </PieChart>
+
+          </ResponsiveContainer>
+
+        </ChartCard>
+
+
+        <ChartCard title="Jurisdiction Distribution">
+
+          <ResponsiveContainer width="100%" height={300}>
+
+            <BarChart data={jurisdictionData}>
+
+              <CartesianGrid strokeDasharray="3 3" />
+
+              <XAxis dataKey="name" />
+              <YAxis />
+
+              <Tooltip />
+
+              <Bar dataKey="value" fill="#6366f1" />
+
+            </BarChart>
+
+          </ResponsiveContainer>
+
+        </ChartCard>
+
+
+        <ChartCard title="Patent Publication Trend">
+
+          <ResponsiveContainer width="100%" height={300}>
+
+            <LineChart data={trendData}>
+
+              <CartesianGrid strokeDasharray="3 3" />
+
+              <XAxis dataKey="year" />
+              <YAxis />
+
+              <Tooltip />
+              <Legend />
+
               <Line
                 type="monotone"
                 dataKey="filings"
                 stroke="#10b981"
                 strokeWidth={3}
               />
+
             </LineChart>
+
           </ResponsiveContainer>
+
         </ChartCard>
 
-        {/* TOP ASSIGNEE */}
-        <ChartCard title="Top 5 Assignees (Competitor Intelligence)">
+
+        <ChartCard title="Top Applicants">
+
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={assigneeData}>
+
+            <BarChart data={applicantData}>
+
               <CartesianGrid strokeDasharray="3 3" />
+
               <XAxis dataKey="name" />
               <YAxis />
+
               <Tooltip />
+
               <Bar dataKey="value" fill="#f59e0b" />
+
             </BarChart>
+
           </ResponsiveContainer>
+
         </ChartCard>
 
       </div>
 
     </div>
+
   );
+
 }
 
-/* ================= REUSABLE COMPONENTS ================= */
+/* KPI CARD */
 
-function KpiCard({ title, value, color }) {
+function Kpi({ title, value }) {
+
   return (
-    <div className="bg-slate-800 p-6 rounded-xl shadow">
-      <p className="text-gray-400 text-sm">{title}</p>
-      <h3 className={`text-2xl font-bold ${color}`}>
+
+    <div className="
+      bg-slate-800
+      border border-slate-700
+      p-6
+      rounded-xl
+      shadow-xl
+      hover:-translate-y-1
+      hover:shadow-indigo-500/20
+      transition
+    ">
+
+      <p className="text-gray-400 text-sm">
+        {title}
+      </p>
+
+      <h3 className="text-2xl font-bold text-indigo-400">
         {value}
       </h3>
+
     </div>
+
   );
+
 }
 
+/* CHART CARD */
+
 function ChartCard({ title, children }) {
+
   return (
-    <div className="bg-slate-800 p-6 rounded-xl shadow">
+
+    <div className="
+      bg-slate-800
+      border border-slate-700
+      p-6
+      rounded-xl
+      shadow-xl
+      hover:shadow-indigo-500/20
+      transition
+    ">
+
       <h3 className="mb-4 text-indigo-400 font-semibold">
         {title}
       </h3>
+
       {children}
+
     </div>
+
   );
+
 }
+

@@ -1,194 +1,387 @@
+
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 export default function AnalystSearchPage() {
 
-  const token = localStorage.getItem("accessToken");
   const navigate = useNavigate();
 
-  const [keyword, setKeyword] = useState("");
-  const [inventor, setInventor] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [jurisdiction, setJurisdiction] = useState("");
-  const [status, setStatus] = useState("");
+  const [filters, setFilters] = useState({
+    keyword: "",
+    jurisdiction: "",
+    applicant: "",
+    inventor: "",
+    status: "",
+    publicationType: ""
+  });
 
-  const [assets, setAssets] = useState([]);
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+
+  const handleChange = (e) => {
+
+    setFilters({
+      ...filters,
+      [e.target.name]: e.target.value
+    });
+
+  };
 
   const handleSearch = async () => {
 
-    setLoading(true);
-    setSearched(true);
-
-    try {
-      const response = await axios.get(
-        "http://localhost:8081/api/ip-assets",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      let data = response.data || [];
-
-      // 🔥 Frontend filtering (ALL MATCHED RESULTS)
-      data = data.filter(a =>
-        (keyword === "" || a.title?.toLowerCase().includes(keyword.toLowerCase())) &&
-        (inventor === "" || a.inventor?.toLowerCase().includes(inventor.toLowerCase())) &&
-        (assignee === "" || a.assignee?.toLowerCase().includes(assignee.toLowerCase())) &&
-        (jurisdiction === "" || a.jurisdiction === jurisdiction) &&
-        (status === "" || a.status === status)
-      );
-
-      setAssets(data);
-
-    } catch (error) {
-      console.error(error);
+    if (!filters.keyword.trim()) {
+      alert("Enter keyword");
+      return;
     }
 
-    setLoading(false);
+    setLoading(true);
+
+    try {
+
+      const url =
+        `http://localhost:8081/api/search?q=${encodeURIComponent(filters.keyword)}&type=PATENT&page=0&size=20`;
+
+      const res = await axios.get(url);
+
+      let data = res.data.results || [];
+
+      if (filters.jurisdiction)
+        data = data.filter(p => p.jurisdiction === filters.jurisdiction);
+
+      if (filters.applicant)
+        data = data.filter(
+          p => p.applicants?.join(" ")
+            .toLowerCase()
+            .includes(filters.applicant.toLowerCase())
+        );
+
+      if (filters.inventor)
+        data = data.filter(
+          p => p.inventors?.join(" ")
+            .toLowerCase()
+            .includes(filters.inventor.toLowerCase())
+        );
+
+      if (filters.status)
+        data = data.filter(
+          p => p.patentStatus === filters.status
+        );
+
+      if (filters.publicationType)
+        data = data.filter(
+          p => p.publicationType === filters.publicationType
+        );
+
+      setResults(data);
+
+    } catch (err) {
+
+      console.error(err);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
   };
 
-  const clearFilters = () => {
-    setKeyword("");
-    setInventor("");
-    setAssignee("");
-    setJurisdiction("");
-    setStatus("");
-    setAssets([]);
-    setSearched(false);
+  const getStatusColor = (status) => {
+
+    switch (status) {
+
+      case "ACTIVE":
+        return "bg-green-600 text-white";
+
+      case "PENDING":
+        return "bg-yellow-500 text-black";
+
+      case "DISCONTINUED":
+        return "bg-red-600 text-white";
+
+      default:
+        return "bg-gray-600 text-white";
+
+    }
+
   };
 
   return (
-    <div>
 
-      <h2 className="text-2xl text-indigo-400 mb-6">
-        Advanced IP Search
-      </h2>
+    <div className="space-y-10 text-white">
 
-      {/* FILTER SECTION */}
-      <div className="bg-slate-800 p-6 rounded-2xl mb-8 shadow-xl">
+      {/* HEADER */}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
 
-          <input
-            type="text"
-            placeholder="Keyword"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            className="bg-slate-700 p-3 rounded"
-          />
+        <h1 className="text-3xl font-extrabold text-indigo-400">
+          Global Patent Intelligence Search
+        </h1>
 
-          <input
-            type="text"
-            placeholder="Inventor"
-            value={inventor}
-            onChange={(e) => setInventor(e.target.value)}
-            className="bg-slate-700 p-3 rounded"
-          />
-
-          <input
-            type="text"
-            placeholder="Assignee"
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-            className="bg-slate-700 p-3 rounded"
-          />
-
-          <select
-            value={jurisdiction}
-            onChange={(e) => setJurisdiction(e.target.value)}
-            className="bg-slate-700 p-3 rounded"
-          >
-            <option value="">All Jurisdictions</option>
-            <option value="US">US</option>
-            <option value="IN">IN</option>
-            <option value="EU">EU</option>
-          </select>
-
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="bg-slate-700 p-3 rounded"
-          >
-            <option value="">All Status</option>
-            <option value="Filed">Filed</option>
-            <option value="Granted">Granted</option>
-            <option value="Expired">Expired</option>
-          </select>
-
-        </div>
-
-        <div className="flex gap-4 mt-6">
-
-          <button
-            onClick={handleSearch}
-            className="bg-indigo-600 px-6 py-2 rounded hover:bg-indigo-700"
-          >
-            Search
-          </button>
-
-          <button
-            onClick={clearFilters}
-            className="border border-gray-500 px-6 py-2 rounded hover:bg-slate-700"
-          >
-            Clear
-          </button>
-
-        </div>
+        <p className="text-gray-400">
+          Discover patents across technologies and companies.
+        </p>
 
       </div>
 
+
+      {/* FILTER PANEL */}
+
+      <div className="
+        bg-slate-800
+        p-6
+        rounded-xl
+        shadow-xl
+        grid
+        md:grid-cols-3
+        gap-4
+        border border-slate-700
+      ">
+
+        <input
+          name="keyword"
+          placeholder="Keyword (AI, battery, robotics...)"
+          onChange={handleChange}
+          className="
+          bg-slate-900
+          text-white
+          p-3
+          rounded-lg
+          border border-slate-700
+          focus:outline-none
+          focus:ring-2
+          focus:ring-indigo-500
+          "
+        />
+
+        <input
+          name="applicant"
+          placeholder="Applicant / Company"
+          onChange={handleChange}
+          className="
+          bg-slate-900
+          text-white
+          p-3
+          rounded-lg
+          border border-slate-700
+          focus:ring-2
+          focus:ring-indigo-500
+          "
+        />
+
+        <input
+          name="inventor"
+          placeholder="Inventor"
+          onChange={handleChange}
+          className="
+          bg-slate-900
+          text-white
+          p-3
+          rounded-lg
+          border border-slate-700
+          focus:ring-2
+          focus:ring-indigo-500
+          "
+        />
+
+        <select
+          name="jurisdiction"
+          onChange={handleChange}
+          className="
+          bg-slate-900
+          text-white
+          p-3
+          rounded-lg
+          border border-slate-700
+          "
+        >
+
+          <option value="">Jurisdiction</option>
+          <option value="US">US</option>
+          <option value="CN">China</option>
+          <option value="WO">WIPO</option>
+          <option value="KR">Korea</option>
+
+        </select>
+
+        <select
+          name="status"
+          onChange={handleChange}
+          className="
+          bg-slate-900
+          text-white
+          p-3
+          rounded-lg
+          border border-slate-700
+          "
+        >
+
+          <option value="">Patent Status</option>
+          <option value="ACTIVE">Active</option>
+          <option value="PENDING">Pending</option>
+          <option value="DISCONTINUED">Discontinued</option>
+
+        </select>
+
+        <select
+          name="publicationType"
+          onChange={handleChange}
+          className="
+          bg-slate-900
+          text-white
+          p-3
+          rounded-lg
+          border border-slate-700
+          "
+        >
+
+          <option value="">Publication Type</option>
+          <option value="PATENT_APPLICATION">Application</option>
+          <option value="GRANTED_PATENT">Granted</option>
+
+        </select>
+
+      </div>
+
+
+      {/* BUTTONS */}
+
+      <div className="flex flex-wrap gap-4">
+
+        <button
+          onClick={handleSearch}
+          className="
+          bg-indigo-600
+          text-white
+          px-8
+          py-3
+          rounded-lg
+          hover:bg-indigo-700
+          shadow-lg
+          hover:shadow-indigo-500/40
+          transition
+          "
+        >
+          🔎 Search
+        </button>
+
+        <button
+          onClick={() =>
+            navigate(`/analyst/export?q=${encodeURIComponent(filters.keyword)}`)
+          }
+          className="
+          bg-green-600
+          text-white
+          px-8
+          py-3
+          rounded-lg
+          hover:bg-green-700
+          shadow-lg
+          hover:shadow-green-500/30
+          transition
+          "
+        >
+          ⬇ Export Results
+        </button>
+
+        <button
+          onClick={() =>
+            navigate(`/analyst/visualization?q=${encodeURIComponent(filters.keyword)}`)
+          }
+          className="
+          bg-gradient-to-r
+          from-purple-600
+          to-pink-600
+          text-white
+          px-8
+          py-3
+          rounded-lg
+          shadow-lg
+          hover:shadow-pink-500/30
+          transition
+          "
+        >
+          📊 Analytics Dashboard
+        </button>
+
+      </div>
+
+
+      {/* LOADING */}
+
+      {loading && (
+        <p className="text-gray-400">
+          Searching patents...
+        </p>
+      )}
+
+
       {/* RESULTS */}
 
-      {loading && <p className="text-gray-400">Searching...</p>}
+      {results.length > 0 && (
 
-      {!searched && (
-        <p className="text-gray-500 text-center">
-          Fill filters and click Search to view results.
-        </p>
-      )}
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
 
-      {searched && !loading && assets.length === 0 && (
-        <p className="text-gray-400 text-center">
-          No matching assets found.
-        </p>
-      )}
+          {results.map((p) => (
 
-      {assets.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {assets.map(asset => (
             <div
-              key={asset.id}
-              onClick={() => navigate(`/analyst/assets/${asset.id}`)}
-              className="bg-slate-800 p-6 rounded-xl shadow-lg hover:shadow-2xl transition cursor-pointer hover:bg-slate-700"
+              key={p.lensId}
+              onClick={() =>
+                navigate(`/analyst/patent/${p.lensId}`, {
+                  state: { patent: p }
+                })
+              }
+              className="
+              bg-slate-800
+              p-6
+              rounded-xl
+              shadow-xl
+              hover:shadow-indigo-500/30
+              hover:-translate-y-1
+              transition
+              cursor-pointer
+              border border-slate-700
+              "
             >
-              <h3 className="text-indigo-400 font-semibold text-lg mb-2">
-                {asset.title}
+
+              <h3 className="text-indigo-400 font-semibold text-lg mb-2 line-clamp-2">
+                {p.title}
               </h3>
 
-              <p className="text-sm text-gray-400 mb-1">
-                Inventor: {asset.inventor}
+              <p className="text-gray-400 text-sm">
+                Applicant: {p.applicants?.join(", ")}
               </p>
-              <p className="text-sm text-gray-400 mb-1">
-                Assignee: {asset.assignee}
+
+              <p className="text-gray-400 text-sm">
+                Jurisdiction: {p.jurisdiction}
               </p>
-              <p className="text-sm text-gray-400 mb-1">
-                Status: {asset.status}
+
+              <p className="text-gray-400 text-sm">
+                Patent #: {p.docNumber}
               </p>
-              <p className="text-sm text-gray-400">
-                Jurisdiction: {asset.jurisdiction}
+
+              <p className="text-gray-500 text-sm">
+                Published: {p.datePublished}
               </p>
+
+              <span
+                className={`mt-3 inline-block px-3 py-1 text-xs rounded ${getStatusColor(p.patentStatus)}`}
+              >
+                {p.patentStatus}
+              </span>
+
             </div>
+
           ))}
 
         </div>
+
       )}
 
     </div>
+
   );
+
 }
+

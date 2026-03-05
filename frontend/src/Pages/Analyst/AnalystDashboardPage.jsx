@@ -1,163 +1,287 @@
+
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import {
-  PieChart, Pie, Cell,
-  Tooltip, Legend,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
   ResponsiveContainer
 } from "recharts";
 
 export default function AnalystDashboardPage() {
 
-  const token = localStorage.getItem("accessToken");
-  const [assets, setAssets] = useState([]);
+  const [patents, setPatents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAssets();
+    fetchPatents();
   }, []);
 
-  const fetchAssets = async () => {
+  const fetchPatents = async () => {
+
     try {
+
       const response = await axios.get(
-        "http://localhost:8081/api/ip-assets",
+        "http://localhost:8081/api/search",
         {
-          headers: {
-            Authorization: `Bearer ${token}`
+          params: {
+            q: "artificial intelligence",
+            type: "PATENT",
+            page: 0,
+            size: 20
           }
         }
       );
 
-      setAssets(response.data || []);
+      setPatents(response.data.results || []);
+
     } catch (error) {
-      console.error(error);
+
+      console.error("Dashboard API Error:", error);
+
+    } finally {
+
+      setLoading(false);
+
     }
+
   };
 
-  /* ================= KPI CALCULATIONS ================= */
+  const totalPatents = patents.length;
 
-  const totalAssets = assets.length;
-  const granted = assets.filter(a => a.status === "Granted").length;
-  const filed = assets.filter(a => a.status === "Filed").length;
-  const expired = assets.filter(a => a.status === "Expired").length;
-
-  const grantRate =
-    totalAssets > 0
-      ? ((granted / totalAssets) * 100).toFixed(1)
-      : 0;
-
-  /* ================= STATUS DATA ================= */
+  const active = patents.filter(p => p.patentStatus === "ACTIVE").length;
+  const pending = patents.filter(p => p.patentStatus === "PENDING").length;
+  const discontinued = patents.filter(p => p.patentStatus === "DISCONTINUED").length;
 
   const statusData = useMemo(() => {
+
     const counts = {};
-    assets.forEach(a => {
-      counts[a.status] = (counts[a.status] || 0) + 1;
+
+    patents.forEach(p => {
+
+      const status = p.patentStatus || "UNKNOWN";
+
+      counts[status] = (counts[status] || 0) + 1;
+
     });
 
     return Object.keys(counts).map(key => ({
       name: key,
       value: counts[key]
     }));
-  }, [assets]);
 
-  const COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444","#22d3ee"];
+  }, [patents]);
+
+  const COLORS = ["#6366f1","#10b981","#f59e0b","#ef4444"];
+
+  if (loading) {
+
+    return (
+      <p className="text-gray-400 text-lg">
+        Loading dashboard...
+      </p>
+    );
+
+  }
 
   return (
-    <div>
 
-      <h2 className="text-3xl font-bold text-indigo-400 mb-8">
-        Executive Dashboard
+    <div className="space-y-10 text-white">
+
+      {/* TITLE */}
+
+      <h2
+        className="
+        text-3xl
+        font-extrabold
+        bg-gradient-to-r
+        from-indigo-400
+        to-purple-500
+        bg-clip-text
+        text-transparent
+        "
+      >
+        Patent Intelligence Dashboard
       </h2>
 
-      {/* ================= KPI CARDS ================= */}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
+      {/* KPI CARDS */}
 
-        <KpiCard title="Total Assets" value={totalAssets} color="text-indigo-400" />
-        <KpiCard title="Filed" value={filed} color="text-yellow-400" />
-        <KpiCard title="Granted" value={granted} color="text-green-400" />
-        <KpiCard title="Expired" value={expired} color="text-red-400" />
-        <KpiCard title="Grant Rate (%)" value={grantRate} color="text-cyan-400" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+        <KpiCard
+          title="Total Patents"
+          value={totalPatents}
+          color="text-indigo-400"
+        />
+
+        <KpiCard
+          title="Active"
+          value={active}
+          color="text-green-400"
+        />
+
+        <KpiCard
+          title="Pending"
+          value={pending}
+          color="text-yellow-400"
+        />
+
+        <KpiCard
+          title="Discontinued"
+          value={discontinued}
+          color="text-red-400"
+        />
 
       </div>
 
-      {/* ================= MAIN CHART + RECENT ACTIVITY ================= */}
+
+      {/* CHART + RECENT */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-        {/* DONUT CHART */}
-        <div className="bg-slate-800 p-6 rounded-xl shadow-lg">
+        {/* STATUS CHART */}
+
+        <div className="
+        bg-slate-800
+        border border-slate-700
+        p-6
+        rounded-xl
+        shadow-xl
+        hover:shadow-indigo-500/20
+        transition
+        ">
+
           <h3 className="text-indigo-400 font-semibold mb-4">
-            IP Lifecycle Distribution
+            Patent Status Distribution
           </h3>
 
           <ResponsiveContainer width="100%" height={300}>
+
             <PieChart>
+
               <Pie
                 data={statusData}
                 dataKey="value"
-                innerRadius={60}
-                outerRadius={100}
+                innerRadius={70}
+                outerRadius={110}
+                paddingAngle={3}
                 label
               >
+
                 {statusData.map((entry, index) => (
                   <Cell
                     key={index}
                     fill={COLORS[index % COLORS.length]}
                   />
                 ))}
+
               </Pie>
+
               <Tooltip />
               <Legend />
+
             </PieChart>
+
           </ResponsiveContainer>
+
         </div>
 
-        {/* RECENT ACTIVITY */}
-        <div className="bg-slate-800 p-6 rounded-xl shadow-lg">
+
+        {/* RECENT PATENTS */}
+
+        <div className="
+        bg-slate-800
+        border border-slate-700
+        p-6
+        rounded-xl
+        shadow-xl
+        hover:shadow-indigo-500/20
+        transition
+        ">
+
           <h3 className="text-indigo-400 font-semibold mb-4">
-            Recent Filings
+            Recent Patents
           </h3>
 
           <div className="space-y-4 max-h-72 overflow-y-auto">
 
-            {assets.slice(0, 5).map(asset => (
+            {patents.slice(0,5).map(p => (
+
               <div
-                key={asset.id}
-                className="bg-slate-900 p-4 rounded-lg border border-slate-700"
+                key={p.lensId}
+                className="
+                bg-slate-900
+                p-4
+                rounded-lg
+                border border-slate-700
+                hover:border-indigo-500
+                hover:shadow-lg
+                transition
+                "
               >
+
                 <p className="font-semibold text-white">
-                  {asset.title}
+                  {p.title}
                 </p>
+
                 <p className="text-sm text-gray-400">
-                  {asset.assignee} • {asset.jurisdiction}
+                  {p.applicants?.[0]} • {p.jurisdiction}
                 </p>
+
                 <p className="text-xs text-gray-500">
-                  Status: {asset.status}
+                  {p.datePublished} • {p.patentStatus}
                 </p>
+
               </div>
+
             ))}
 
-            {assets.length === 0 && (
-              <p className="text-gray-400">No recent activity</p>
-            )}
-
           </div>
+
         </div>
 
       </div>
 
     </div>
+
   );
+
 }
 
-/* ================= REUSABLE KPI CARD ================= */
+
+/* KPI CARD */
 
 function KpiCard({ title, value, color }) {
+
   return (
-    <div className="bg-slate-800 p-6 rounded-xl shadow-lg">
-      <p className="text-gray-400 text-sm">{title}</p>
+
+    <div
+      className="
+      bg-slate-800
+      border border-slate-700
+      p-6
+      rounded-xl
+      shadow-xl
+      hover:-translate-y-1
+      hover:shadow-indigo-500/20
+      transition
+      "
+    >
+
+      <p className="text-gray-400 text-sm">
+        {title}
+      </p>
+
       <h3 className={`text-2xl font-bold ${color}`}>
         {value}
       </h3>
+
     </div>
+
   );
+
 }
+

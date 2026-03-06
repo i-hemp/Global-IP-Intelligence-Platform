@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
+import { User, Mail, Shield, Building, Phone } from "lucide-react";
 
 const Profile = () => {
 
@@ -28,7 +29,6 @@ const Profile = () => {
 
       let endpoint = "";
 
-      // 🔥 Role-based endpoint
       if (role === "ADMIN") {
         endpoint = "http://localhost:8081/api/admin/me";
       } else if (role === "ANALYST") {
@@ -38,23 +38,17 @@ const Profile = () => {
       }
 
       const res = await axios.get(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       setUser(res.data);
 
     } catch (error) {
 
-      console.error(error);
-
       if (error.response?.status === 401) {
         toast.error("Session expired. Please login again.");
         localStorage.clear();
         navigate("/login");
-      } else if (error.response?.status === 403) {
-        toast.error("Access denied.");
       } else {
         toast.error("Failed to load profile.");
       }
@@ -62,6 +56,7 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
+
   };
 
   const handleLogout = () => {
@@ -72,7 +67,7 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div className="text-white p-10">
+      <div className="p-10 text-gray-400">
         Loading profile...
       </div>
     );
@@ -80,58 +75,182 @@ const Profile = () => {
 
   if (!user) {
     return (
-      <div className="text-white p-10">
+      <div className="p-10 text-gray-400">
         No profile data found.
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-900 text-white p-10">
 
-      <h2 className="text-3xl font-bold text-indigo-400 mb-8">
+    <div className="space-y-10 text-white">
+
+      {/* TITLE */}
+
+      <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
         My Profile
       </h2>
 
-      <div className="bg-slate-800 p-8 rounded-xl shadow-lg max-w-3xl">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* PROFILE CARD */}
 
-          <Info label="Username" value={user.username} />
-          <Info label="Email" value={user.email} />
-          <Info label="Role" value={role} />
+      <div className="
+        bg-slate-800
+        border border-slate-700
+        rounded-xl
+        shadow-xl
+        hover:shadow-indigo-500/20
+        transition
+        p-8
+        max-w-4xl
+      ">
 
-          {user.phone && <Info label="Phone" value={user.phone} />}
-          {user.gender && <Info label="Gender" value={user.gender} />}
-          {user.organization && <Info label="Organization" value={user.organization} />}
-          {user.purpose && <Info label="Purpose" value={user.purpose} />}
+        {/* HEADER */}
+
+        <div className="flex items-center gap-6 mb-10">
+
+          {/* AVATAR */}
+
+          <div className="
+            w-16 h-16
+            rounded-full
+            bg-gradient-to-r
+            from-indigo-500
+            to-purple-500
+            flex items-center justify-center
+            text-white
+            text-xl
+            font-bold
+            shadow-md
+          ">
+            {user.username?.charAt(0).toUpperCase()}
+          </div>
+
+
+          {/* USER INFO */}
+
+          <div>
+
+            <h3 className="text-xl font-semibold text-white">
+              {user.username}
+            </h3>
+
+            <p className="text-gray-400">
+              {user.email}
+            </p>
+
+            <span className="
+              inline-block
+              mt-2
+              text-xs
+              px-3
+              py-1
+              rounded-full
+              bg-indigo-600
+              text-white
+              shadow
+            ">
+              {role}
+            </span>
+
+          </div>
 
         </div>
 
-        <div className="mt-8">
+
+        {/* INFO GRID */}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <Info icon={<User size={16}/>} label="Username" value={user.username}/>
+          <Info icon={<Mail size={16}/>} label="Email" value={user.email}/>
+          <Info icon={<Shield size={16}/>} label="Role" value={role}/>
+
+          {user.organization && (
+            <Info
+              icon={<Building size={16}/>}
+              label="Organization"
+              value={user.organization}
+            />
+          )}
+
+          {user.phone && (
+            <Info
+              icon={<Phone size={16}/>}
+              label="Phone"
+              value={user.phone}
+            />
+          )}
+
+        </div>
+
+
+        {/* ACTIONS */}
+
+        <div className="mt-10">
+
           <button
             onClick={handleLogout}
-            className="bg-red-600 px-6 py-3 rounded-lg hover:bg-red-700 transition"
+            className="
+            bg-red-600
+            hover:bg-red-700
+            text-white
+            px-6
+            py-3
+            rounded-lg
+            shadow
+            hover:shadow-red-500/30
+            transition
+            "
           >
             Logout
           </button>
+
         </div>
 
       </div>
 
     </div>
+
   );
+
 };
 
-const Info = ({ label, value }) => (
-  <div className="bg-slate-700 p-4 rounded-xl">
-    <strong className="block text-gray-400 text-sm mb-1">
-      {label}
-    </strong>
-    <p className="font-medium text-white">
-      {value}
-    </p>
+
+/* INFO COMPONENT */
+
+const Info = ({ icon, label, value }) => (
+
+  <div className="
+    bg-slate-900
+    border border-slate-700
+    rounded-lg
+    p-4
+    flex items-start gap-3
+    shadow
+    hover:shadow-indigo-500/10
+    transition
+  ">
+
+    <div className="text-indigo-400 mt-1">
+      {icon}
+    </div>
+
+    <div>
+
+      <p className="text-xs text-gray-400">
+        {label}
+      </p>
+
+      <p className="text-white font-medium">
+        {value}
+      </p>
+
+    </div>
+
   </div>
+
 );
 
 export default Profile;
+

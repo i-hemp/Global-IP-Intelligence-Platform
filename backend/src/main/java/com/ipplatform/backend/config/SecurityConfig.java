@@ -40,7 +40,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOriginPatterns(List.of("*"));  // 🔥 FIX
+        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(List.of("*"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(false);
@@ -83,10 +83,13 @@ public class SecurityConfig {
 
                         .requestMatchers("/actuator/health").permitAll()
 
-                        // 🔥 Search + Detail API PUBLIC (for development / anonymous browsing)
+                        // 🔥 Search + Detail API PUBLIC
                         .requestMatchers(HttpMethod.GET, "/api/search/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/assets/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/ip-assets/**").permitAll()
+
+                        // 🔥 ADD THIS LINE (YOUR FIX)
+                        .requestMatchers(HttpMethod.GET, "/api/visualization/**").permitAll()
 
                         // ── Legal Status API ─────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/legal-status/summary").permitAll()
@@ -113,8 +116,8 @@ public class SecurityConfig {
                         // ── ROLE_ADMIN ───────────────────────────────
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                .anyRequest().authenticated()
-            )
+                        .anyRequest().authenticated()
+                )
 
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

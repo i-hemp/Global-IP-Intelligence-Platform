@@ -27,19 +27,45 @@ public class LensApiService {
 
     // Fields Lens.org accepts in the "include" array for patent search
     private static final List<String> PATENT_INCLUDE = List.of(
-            "lens_id", "jurisdiction", "doc_number", "kind",
-            "date_published", "doc_key", "lang",
-            "biblio", "abstract", "legal_status", "publication_type");
+            "lens_id",
+            "jurisdiction",
+            "doc_number",
+            "kind",
+            "date_published",
+            "doc_key",
+            "lang",
+            "biblio",
+            "abstract",
+            "legal_status",
+            "publication_type"
+    );
 
     private static final List<String> SCHOLARLY_INCLUDE = List.of(
-            "lens_id", "title", "authors", "year_published",
-            "scholarly_citations_count", "abstract", "source",
-            "external_ids", "publication_type", "fields_of_study");
+            "lens_id",
+            "title",
+            "authors",
+            "year_published",
+            "scholarly_citations_count",
+            "abstract",
+            "source",
+            "external_ids",
+            "publication_type",
+            "fields_of_study"
+    );
 
     private static final List<String> PATENT_DETAIL_INCLUDE = List.of(
-            "lens_id", "jurisdiction", "doc_number", "kind",
-            "date_published", "lang", "biblio", "abstract",
-            "legal_status", "publication_type", "description");
+            "lens_id",
+            "jurisdiction",
+            "doc_number",
+            "kind",
+            "date_published",
+            "lang",
+            "biblio",
+            "abstract",
+            "legal_status",
+            "publication_type",
+            "description"
+    );
 
     @Value("${ip.api.lens.base-url:https://api.lens.org}")
     private String baseUrl;
@@ -72,26 +98,30 @@ public class LensApiService {
                 "query", Map.of("query_string", Map.of("query", query)),
                 "from", page * size,
                 "size", size,
-                "include", SCHOLARLY_INCLUDE);
+                "include", SCHOLARLY_INCLUDE
+        );
         return callLens("/scholarly/search", body, "scholarly");
     }
 
     // ── Patent Detail ─────────────────────────────────────────────────────────
 
     /**
-     * Fetch full patent by Lens ID. Returns the single patent node (not wrapped in
-     * data[]).
+     * Fetch full patent by Lens ID. Returns the single patent node (not wrapped in data[]).
      */
     public JsonNode getPatentByLensId(String lensId) {
         Map<String, Object> body = Map.of(
                 "query", Map.of("term", Map.of("lens_id", lensId)),
                 "size", 1,
-                "include", PATENT_DETAIL_INCLUDE);
+                "include", PATENT_DETAIL_INCLUDE
+        );
+
         JsonNode result = callLens("/patent/search", body, "patent");
         JsonNode data = result.path("data");
+
         if (data.isEmpty()) {
             throw new ExternalApiException("Lens.org", 404, "Patent not found: " + lensId);
         }
+
         return data.get(0);
     }
 
@@ -99,10 +129,10 @@ public class LensApiService {
 
     /**
      * Builds the Lens.org request body.
-     * If jurisdiction is provided (non-blank), wraps the query in a bool/must
-     * filter.
+     * If jurisdiction is provided (non-blank), wraps the query in a bool/must filter.
      */
     private Map<String, Object> buildPatentBody(String query, String jurisdiction, int page, int size) {
+
         Object lensQuery;
 
         if (jurisdiction != null && !jurisdiction.isBlank()) {
@@ -111,7 +141,10 @@ public class LensApiService {
                     "bool", Map.of(
                             "must", List.of(
                                     Map.of("query_string", Map.of("query", query)),
-                                    Map.of("term", Map.of("jurisdiction", jurisdiction.toUpperCase())))));
+                                    Map.of("term", Map.of("jurisdiction", jurisdiction.toUpperCase()))
+                            )
+                    )
+            );
         } else {
             lensQuery = Map.of("query_string", Map.of("query", query));
         }
@@ -120,12 +153,15 @@ public class LensApiService {
                 "query", lensQuery,
                 "from", page * size,
                 "size", size,
-                "include", PATENT_INCLUDE);
+                "include", PATENT_INCLUDE
+        );
     }
 
     private JsonNode callLens(String path, Map<String, Object> body, String apiType) {
+
         String url = baseUrl + path;
         log.info("Lens.org {} search → {}", apiType, url);
+
         try {
             String raw = webClient.post()
                     .uri(url)
@@ -133,11 +169,17 @@ public class LensApiService {
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
                     .retrieve()
-                    .onStatus(s -> !s.is2xxSuccessful(), response -> response.bodyToMono(String.class).flatMap(err -> {
-                        log.error("Lens.org {} error: {}", response.statusCode(), err);
-                        return Mono.error(new ExternalApiException(
-                                "Lens.org", response.statusCode().value(), err));
-                    }))
+                    .onStatus(
+                            s -> !s.is2xxSuccessful(),
+                            response -> response.bodyToMono(String.class).flatMap(err -> {
+                                log.error("Lens.org {} error: {}", response.statusCode(), err);
+                                return Mono.error(new ExternalApiException(
+                                        "Lens.org",
+                                        response.statusCode().value(),
+                                        err
+                                ));
+                            })
+                    )
                     .bodyToMono(String.class)
                     .block();
 
@@ -145,12 +187,20 @@ public class LensApiService {
 
         } catch (ExternalApiException e) {
             throw e;
+
         } catch (WebClientResponseException e) {
-            throw new ExternalApiException("Lens.org", e.getStatusCode().value(),
-                    e.getResponseBodyAsString());
+            throw new ExternalApiException(
+                    "Lens.org",
+                    e.getStatusCode().value(),
+                    e.getResponseBodyAsString()
+            );
+
         } catch (Exception e) {
-            throw new ExternalApiException("Lens.org",
-                    "Failed to contact Lens.org: " + e.getMessage(), e);
+            throw new ExternalApiException(
+                    "Lens.org",
+                    "Failed to contact Lens.org: " + e.getMessage(),
+                    e
+            );
         }
     }
 }

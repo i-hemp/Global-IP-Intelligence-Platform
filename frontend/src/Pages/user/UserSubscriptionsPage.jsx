@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -19,6 +19,7 @@ import {
   X,
   CheckCircle,
 } from "lucide-react";
+import api from "../../services/api";
 
 export default function UserSubscriptionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,19 +28,55 @@ export default function UserSubscriptionsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const [patents, setPatents] = useState([]);
+
+  useEffect(() => {
+    fetchSubscriptions();
+  }, []);
+
+  const fetchSubscriptions = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get("/api/subscriptions");
+      // Map backend data to UI format
+      const mapped = res.data.map(sub => ({
+        id: sub.lensId,
+        title: sub.title || "Untitled Patent",
+        type: "Patent",
+        stage: "Monitoring", // Default stage for watchlisted items
+        lifecycle: 50,
+        renewal: "-",
+        expiry: "-",
+        jurisdiction: sub.jurisdiction || "Unknown",
+        assignee: "N/A", // Not stored in DB currently
+        priority: "medium",
+        riskScore: 50,
+        actions: ["view", "export"],
+        datePub: sub.datePub,
+        subscribedAt: sub.subscribedAt
+      }));
+      setPatents(mapped);
+    } catch (err) {
+      console.error(err);
+      setSuccessMessage("Failed to load subscriptions.");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const stats = [
     {
       label: "Total Assets",
-      value: 10,
+      value: patents.length,
       change: "+12%",
       color: "text-indigo-400",
       trend: "up",
       icon: LayoutDashboard,
     },
     {
-      label: "Applications",
-      value: 4,
+      label: "Monitoring",
+      value: patents.filter(p => p.stage === "Monitoring").length,
       change: "+2%",
       color: "text-blue-400",
       trend: "up",
@@ -47,7 +84,7 @@ export default function UserSubscriptionsPage() {
     },
     {
       label: "Granted",
-      value: 3,
+      value: patents.filter(p => p.stage === "Granted").length,
       change: "+1%",
       color: "text-emerald-400",
       trend: "up",
@@ -55,7 +92,7 @@ export default function UserSubscriptionsPage() {
     },
     {
       label: "Renewal Due",
-      value: 2,
+      value: patents.filter(p => p.stage === "Renewal Due").length,
       change: "0%",
       color: "text-amber-400",
       trend: "flat",
@@ -63,56 +100,11 @@ export default function UserSubscriptionsPage() {
     },
     {
       label: "Expired",
-      value: 1,
+      value: patents.filter(p => p.stage === "Expired").length,
       change: "-1%",
       color: "text-red-400",
       trend: "down",
       icon: AlertCircle,
-    },
-  ];
-
-  const patents = [
-    {
-      id: "US2025123456",
-      title: "AI-based Medical Imaging System",
-      type: "Patent",
-      stage: "Granted",
-      lifecycle: 55,
-      renewal: "2026-03-15",
-      expiry: "2042-05-10",
-      jurisdiction: "USPTO",
-      assignee: "MedTech AI Corp",
-      priority: "high",
-      riskScore: 92,
-      actions: ["view", "export"],
-    },
-    {
-      id: "WO202601234",
-      title: "Smart Agriculture Irrigation Device",
-      type: "Patent",
-      stage: "Application",
-      lifecycle: 20,
-      renewal: "-",
-      expiry: "-",
-      jurisdiction: "WIPO",
-      assignee: "AgriTech Solutions",
-      priority: "medium",
-      riskScore: 67,
-      actions: ["track"],
-    },
-    {
-      id: "EP202590221",
-      title: "Quantum Encryption Processor",
-      type: "Trademark",
-      stage: "Renewal Due",
-      lifecycle: 78,
-      renewal: "2027-03-10",
-      expiry: "2031-11-02",
-      jurisdiction: "EPO",
-      assignee: "QuantumSec Ltd",
-      priority: "critical",
-      riskScore: 45,
-      actions: ["renew", "view"],
     },
   ];
 
@@ -129,6 +121,7 @@ export default function UserSubscriptionsPage() {
       Application: "bg-blue-500/20 text-blue-400 border-blue-500/30",
       "Renewal Due": "bg-amber-500/20 text-amber-400 border-amber-500/30",
       Expired: "bg-red-500/20 text-red-400 border-red-500/30",
+      Monitoring: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
     };
     return colors[stage] || "bg-gray-500/20 text-gray-400 border-gray-500/30";
   };
@@ -381,6 +374,7 @@ export default function UserSubscriptionsPage() {
               className="bg-slate-800/50 border border-white/20 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
             >
               <option value="all">All Stages</option>
+              <option value="Monitoring">Monitoring</option>
               <option value="Granted">Granted</option>
               <option value="Application">Application</option>
               <option value="Renewal Due">Renewal Due</option>

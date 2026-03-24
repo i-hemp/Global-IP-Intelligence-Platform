@@ -25,12 +25,12 @@ import AnalystStatusDashboard from "./Pages/Analyst/AnalystStatusDashboard";
 /* 🔥 NEW DETAIL PAGE */
 import PatentDetailPage from "./Pages/Analyst/PatentDetailPage";
 
-import UserLayout from "./Pages/User/UserLayout";
-import UserDashboardPage from "./Pages/User/UserDashboardPage";
-import UserSearchPage from "./Pages/User/UserSearchPage";
-import UserWatchlistPage from "./Pages/User/UserWatchlistPage";
-import UserHistoryPage from "./Pages/User/UserHistoryPage";
-import UserPatentDetailPage from "./Pages/User/UserPatentDetailPage";
+import UserLayout from "./Pages/user/UserLayout";
+import UserDashboardPage from "./Pages/user/UserDashboardPage";
+import UserSearchPage from "./Pages/user/UserSearchPage";
+import UserWatchlistPage from "./Pages/user/UserWatchlistPage";
+import UserHistoryPage from "./Pages/user/UserHistoryPage";
+import UserPatentDetailPage from "./Pages/user/UserPatentDetailPage";
 import UserStatusDashboard from "./Pages/user/UserStatusDashboard";
 import UserSubscriptionsPage from "./Pages/user/UserSubscriptionsPage";
 export default function App() {

@@ -47,6 +47,7 @@ public class UserService {
     private final PasswordEncoder             passwordEncoder;
     private final JwtUtil                     jwtUtil;
     private final EmailService                emailService;
+    private final AdminLogService             logService;
 
     public UserService(UserRepository userRepository,
                        AnalystRepository analystRepository,
@@ -54,7 +55,8 @@ public class UserService {
                        PasswordResetTokenRepository resetTokenRepository,
                        PasswordEncoder passwordEncoder,
                        JwtUtil jwtUtil,
-                       EmailService emailService) {
+                       EmailService emailService,
+                       AdminLogService logService) {
         this.userRepository         = userRepository;
         this.analystRepository      = analystRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -62,6 +64,7 @@ public class UserService {
         this.passwordEncoder        = passwordEncoder;
         this.jwtUtil                = jwtUtil;
         this.emailService           = emailService;
+        this.logService             = logService;
     }
 
     // ── Register ──────────────────────────────────────────────────────────────
@@ -89,6 +92,10 @@ public class UserService {
         user.setStatus("ACTIVE");
 
         userRepository.save(user);
+
+        logService.log("USER_REGISTERED", username, "USER",
+                user.getId() != null ? user.getId().toString() : null,
+                "New user registered with email: " + email);
 
         try { emailService.sendWelcomeEmail(email, user.getName()); }
         catch (Exception ignored) {}

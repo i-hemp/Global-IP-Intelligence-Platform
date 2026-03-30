@@ -4,6 +4,7 @@ import com.ipplatform.backend.model.User;
 import com.ipplatform.backend.model.UserSubscription;
 import com.ipplatform.backend.repository.UserRepository;
 import com.ipplatform.backend.repository.UserSubscriptionRepository;
+import com.ipplatform.backend.service.AdminLogService;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,11 +28,14 @@ public class SubscriptionController {
 
     private final UserSubscriptionRepository subscriptionRepo;
     private final UserRepository userRepo;
+    private final AdminLogService logService;
 
     public SubscriptionController(UserSubscriptionRepository subscriptionRepo,
-                                   UserRepository userRepo) {
+                                   UserRepository userRepo,
+                                   AdminLogService logService) {
         this.subscriptionRepo = subscriptionRepo;
         this.userRepo         = userRepo;
+        this.logService       = logService;
     }
 
     // ── Helper: resolve userId from JWT principal ─────────────────────────────
@@ -69,6 +73,10 @@ public class SubscriptionController {
         );
         subscriptionRepo.save(sub);
 
+        String title = body.getOrDefault("title", "");
+        logService.log("SUBSCRIPTION_CREATED", principal.getName(), "PATENT", lensId,
+                "Subscribed to: " + title);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(Map.of("message", "Subscribed successfully."));
     }
@@ -92,6 +100,10 @@ public class SubscriptionController {
         }
 
         subscriptionRepo.deleteByUserIdAndLensId(userId, lensId);
+
+        logService.log("SUBSCRIPTION_DELETED", principal.getName(), "PATENT", lensId,
+                "Unsubscribed from patent");
+
         return ResponseEntity.ok(Map.of("message", "Unsubscribed successfully."));
     }
 

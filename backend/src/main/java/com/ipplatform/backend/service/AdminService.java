@@ -38,17 +38,20 @@ public class AdminService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder        passwordEncoder;
     private final JwtUtil                jwtUtil;
+    private final AdminLogService        logService;
 
     public AdminService(AdminRepository adminRepository,
                         AnalystRepository analystRepository,
                         RefreshTokenRepository refreshTokenRepository,
                         PasswordEncoder passwordEncoder,
-                        JwtUtil jwtUtil) {
+                        JwtUtil jwtUtil,
+                        AdminLogService logService) {
         this.adminRepository        = adminRepository;
         this.analystRepository      = analystRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder        = passwordEncoder;
         this.jwtUtil                = jwtUtil;
+        this.logService             = logService;
     }
 
     // ── Login ─────────────────────────────────────────────────────────────────
@@ -76,6 +79,8 @@ public class AdminService {
         RefreshToken rt = new RefreshToken(rawRefresh, "ADMIN", admin.getId(),
                 admin.getUsername(), expiresAt, false);
         refreshTokenRepository.save(rt);
+
+        logService.log("ADMIN_LOGIN", username, "ADMIN", admin.getId().toString(), "Admin logged in");
 
         return new TokenPair(access, rawRefresh, admin.getUsername(), "ROLE_ADMIN");
     }
@@ -161,6 +166,9 @@ public class AdminService {
         analyst.setReviewedAt(Instant.now());
         analystRepository.save(analyst);
 
+        logService.log("ANALYST_APPROVED", adminUsername, "ANALYST", id.toString(),
+                "Note: " + (adminNote != null ? adminNote : ""));
+
         return Map.of(
                 "message",  "Analyst approved. They can now log in.",
                 "id",       analyst.getId(),
@@ -187,6 +195,9 @@ public class AdminService {
         analyst.setReviewedBy(adminUsername);
         analyst.setReviewedAt(Instant.now());
         analystRepository.save(analyst);
+
+        logService.log("ANALYST_REJECTED", adminUsername, "ANALYST", id.toString(),
+                "Reason: " + (reason != null ? reason : "Does not meet requirements"));
 
         return Map.of(
                 "message",  "Analyst rejected.",
